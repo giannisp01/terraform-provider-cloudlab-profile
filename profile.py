@@ -13,26 +13,29 @@ communication only.)
 import geni.portal as portal
 import geni.rspec.pg as rspec
 
+# Create a portal context, needed to defined parameters
+pc = portal.Context()
+
 """
 Define User Parameters
 """
-# List of parameters with structure (name,description,type)
+# List of parameters with structure (name,description,type,default)
 parameters = [
-    ("IPv4", "Node IPv4 address", portal.ParameterType.STRING),
-    ("SubnetMask", "Node subnet mask", portal.ParameterType.STRING),
-    ("VLAN", "Node VLAN", portal.ParameterType.STRING),
+    ("IPv4", "Node IPv4 address", portal.ParameterType.STRING, ""),
+    ("SubnetMask", "Node subnet mask", portal.ParameterType.STRING, ""),
+    ("VLAN", "Node VLAN", portal.ParameterType.STRING, ""),
 ]
 
 for param in parameters:
-    name, description, type = param
-    portal.context.defineParameter(name, description, type)
+    name, description, type, default = param
+    pc.defineParameter(name, description, type, default)
 
-portal.context.verifyParameters()
+pc.verifyParameters()
 
 # Retrieve the values the user specifies during instantiation.
 params = pc.bindParameters()
 
-request = portal.context.makeRequestRSpec()
+request = pc.makeRequestRSpec()
 
 node1 = request.XenVM("node1")
 iface1 = node1.addInterface("if1")
@@ -48,5 +51,4 @@ link.addInterface(iface1)
 link = request.Link("link")
 link.connectSharedVlan(params.VLAN)
 
-
-portal.context.printRequestRSpec()
+pc.printRequestRSpec(request)
