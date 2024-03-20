@@ -19,16 +19,10 @@ pc = portal.Context()
 """
 Define User Parameters
 """
-# List of parameters with structure (name,description,type,default)
-parameters = [
-    ("IPv4", "Node IPv4 address", portal.ParameterType.STRING, ""),
-    ("SubnetMask", "Node subnet mask", portal.ParameterType.STRING, ""),
-    ("VLAN", "Node VLAN", portal.ParameterType.STRING, ""),
-]
+pc.defineParameter("IPv4", "Node IPv4 address", portal.ParameterType.STRING, "")
+pc.defineParameter("SubnetMask", "Node subnet mask", portal.ParameterType.STRING, "")
+pc.defineParameter("VLAN", "Node VLAN", portal.ParameterType.STRING, "")
 
-for param in parameters:
-    name, description, type, default = param
-    pc.defineParameter(name, description, type, default)
 
 pc.verifyParameters()
 
