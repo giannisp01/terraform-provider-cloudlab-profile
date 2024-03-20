@@ -43,6 +43,6 @@ link.addInterface(iface1)
 
 # Specify the name of the shared vlan. This vlan is special in that it has
 # been setup in advance by system administrators on a specific cluster.
-link.connectSharedVlan(params.VLAN);
+link.shared_vlan = params.VLAN
 
 pc.printRequestRSpec(request)
