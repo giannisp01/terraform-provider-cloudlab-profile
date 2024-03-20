@@ -44,11 +44,11 @@ iface1 = node1.addInterface("if1")
 iface1.component_id = "eth1"
 iface1.addAddress(rspec.IPv4Address(params.IPv4, params.SubnetMask))
 
-link = request.LAN("vlan")
-
+link = request.Link("link")
 link.addInterface(iface1)
 
-link = request.Link("link")
-link.connectSharedVlan(params.VLAN)
+# Specify the name of the shared vlan. This vlan is special in that it has
+# been setup in advance by system administrators on a specific cluster.
+link.connectSharedVlan(params.VLAN);
 
 pc.printRequestRSpec(request)
