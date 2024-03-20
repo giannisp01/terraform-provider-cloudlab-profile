@@ -1,194 +1,37 @@
-"""Variable number of nodes in a lan. You have the option of picking from one
-of several standard images we provide, or just use the default (typically a recent
-version of Ubuntu). You may also optionally pick the specific hardware type for
-all the nodes in the lan.
+"""An example of constructing a profile with node IP addresses specified
+manually.
 
 Instructions:
-Wait for the experiment to start, and then log into one or more of the nodes
-by clicking on them in the toplogy, and choosing the `shell` menu option.
-Use `sudo` to run root commands.
+Wait for the profile instance to start, and then log in to either VM via the
+ssh ports specified below.  (Note that even though the EXPERIMENTAL
+data plane interfaces will use the addresses given in the profile, you
+will still connect over the control plane interfaces using addresses
+given by the testbed.  The data plane addresses are for intra-experiment
+communication only.)
 """
 
-# Import the Portal object.
 import geni.portal as portal
-# Import the ProtoGENI library.
-import geni.rspec.pg as pg
-# Emulab specific extensions.
-import geni.rspec.emulab as emulab
+import geni.rspec.pg as rspec
 
-# Create a portal context, needed to defined parameters
-pc = portal.Context()
+request = portal.context.makeRequestRSpec()
 
-# Create a Request object to start building the RSpec.
-request = pc.makeRequestRSpec()
+node1 = request.XenVM("node1")
+iface1 = node1.addInterface("if1")
 
-# Variable number of nodes.
-pc.defineParameter("nodeCount", "Number of Nodes", portal.ParameterType.INTEGER, 1,
-                   longDescription="If you specify more then one node, " +
-                                   "we will create a lan for you.")
+# Specify the component id and the IPv4 address
+iface1.component_id = "eth1"
+iface1.addAddress(rspec.IPv4Address("192.168.1.1", "255.255.255.0"))
 
-# Pick your OS.
-imageList = [
-    ('default', 'Default Image'),
-    ('urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU18-64-STD', 'UBUNTU 18.04'),
-    ('urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU20-64-STD', 'UBUNTU 20.04'),
-    ('urn:publicid:IDN+emulab.net+image+emulab-ops//CENTOS7-64-STD', 'CENTOS 7'),
-    ('urn:publicid:IDN+emulab.net+image+emulab-ops//CENTOS8-64-STD', 'CENTOS 8'),
-    ('urn:publicid:IDN+emulab.net+image+emulab-ops//FBSD114-64-STD', 'FreeBSD 11.4'),
-    ('urn:publicid:IDN+emulab.net+image+emulab-ops//FBSD122-64-STD', 'FreeBSD 12.2')]
+node2 = request.XenVM("node2")
+iface2 = node2.addInterface("if2")
 
-pc.defineParameter("osImage", "Select OS image",
-                   portal.ParameterType.IMAGE,
-                   imageList[0], imageList,
-                   longDescription="Most clusters have this set of images, " +
-                                   "pick your favorite one.")
+# Specify the component id and the IPv4 address
+iface2.component_id = "eth2"
+iface2.addAddress(rspec.IPv4Address("192.168.1.2", "255.255.255.0"))
 
-# Optional physical type for all nodes.
-pc.defineParameter("phystype", "Optional physical node type",
-                   portal.ParameterType.STRING, "",
-                   longDescription="Specify a physical node type (pc3000,d710,etc) " +
-                                   "instead of letting the resource mapper choose for you.")
+link = request.LAN("vlan")
 
-# Optionally create XEN VMs instead of allocating bare metal nodes.
-pc.defineParameter("useVMs", "Use XEN VMs",
-                   portal.ParameterType.BOOLEAN, False,
-                   longDescription="Create XEN VMs instead of allocating bare metal nodes.")
+link.addInterface(iface1)
+link.addInterface(iface2)
 
-# Optional link speed, normally the resource mapper will choose for you based on node availability
-pc.defineParameter("linkSpeed", "Link Speed", portal.ParameterType.INTEGER, 0,
-                   [(0, "Any"), (100000, "100Mb/s"), (1000000, "1Gb/s"), (10000000, "10Gb/s"), (25000000, "25Gb/s"),
-                    (100000000, "100Gb/s")],
-                   advanced=True,
-                   longDescription="A specific link speed to use for your lan. Normally the resource " +
-                                   "mapper will choose for you based on node availability and the optional physical type.")
-
-# For very large lans you might to tell the resource mapper to override the bandwidth constraints
-# and treat it a "best-effort"
-pc.defineParameter("bestEffort", "Best Effort", portal.ParameterType.BOOLEAN, False,
-                   advanced=True,
-                   longDescription="For very large lans, you might get an error saying 'not enough bandwidth.' " +
-                                   "This options tells the resource mapper to ignore bandwidth and assume you know what you " +
-                                   "are doing, just give me the lan I ask for (if enough nodes are available).")
-
-# Sometimes you want all of nodes on the same switch, Note that this option can make it impossible
-# for your experiment to map.
-pc.defineParameter("sameSwitch", "No Interswitch Links", portal.ParameterType.BOOLEAN, False,
-                   advanced=True,
-                   longDescription="Sometimes you want all the nodes connected to the same switch. " +
-                                   "This option will ask the resource mapper to do that, although it might make " +
-                                   "it imppossible to find a solution. Do not use this unless you are sure you need it!")
-
-# Optional ephemeral blockstore
-pc.defineParameter("tempFileSystemSize", "Temporary Filesystem Size",
-                   portal.ParameterType.INTEGER, 0, advanced=True,
-                   longDescription="The size in GB of a temporary file system to mount on each of your " +
-                                   "nodes. Temporary means that they are deleted when your experiment is terminated. " +
-                                   "The images provided by the system have small root partitions, so use this option " +
-                                   "if you expect you will need more space to build your software packages or store " +
-                                   "temporary files.")
-
-# Instead of a size, ask for all available space.
-pc.defineParameter("tempFileSystemMax", "Temp Filesystem Max Space",
-                   portal.ParameterType.BOOLEAN, False,
-                   advanced=True,
-                   longDescription="Instead of specifying a size for your temporary filesystem, " +
-                                   "check this box to allocate all available disk space. Leave the size above as zero.")
-
-pc.defineParameter("tempFileSystemMount", "Temporary Filesystem Mount Point",
-                   portal.ParameterType.STRING, "/mydata", advanced=True,
-                   longDescription="Mount the temporary file system at this mount point; in general you " +
-                                   "you do not need to change this, but we provide the option just in case your software " +
-                                   "is finicky.")
-
-pc.defineParameter("dataset", "URN of your image-backed dataset",
-                   portal.ParameterType.STRING,
-                   "urn:publicid:IDN+wisc.cloudlab.us:ucy-coast-pg0+imdataset+linux-4-15-18-deb")
-pc.defineParameter("datasetMountPoint", "Mountpoint for imaged-backed dataset",
-                   portal.ParameterType.STRING, "/mydata")
-
-# Retrieve the values the user specifies during instantiation.
-params = pc.bindParameters()
-
-# Check parameter validity.
-if params.nodeCount < 1:
-    pc.reportError(portal.ParameterError("You must choose at least 1 node.", ["nodeCount"]))
-
-if params.tempFileSystemSize < 0 or params.tempFileSystemSize > 200:
-    pc.reportError(portal.ParameterError("Please specify a size greater then zero and " +
-                                         "less then 200GB", ["nodeCount"]))
-
-if params.nodeCount > 1:
-    for i in range(params.nodeCount):
-        parameterName = "node " + (i + 1) + " osImage"
-        pc.defineParameter(parameterName, "Select OS image for node " + (i + 1),
-                           portal.ParameterType.IMAGE,
-                           imageList[0], imageList,
-                           longDescription="Most clusters have this set of images, " +
-                                           "pick your favorite one.")
-pc.verifyParameters()
-
-# Create link/lan.
-if params.nodeCount > 1:
-    if params.nodeCount == 2:
-        lan = request.Link()
-    else:
-        lan = request.LAN()
-        pass
-    if params.bestEffort:
-        lan.best_effort = True
-    elif params.linkSpeed > 0:
-        lan.bandwidth = params.linkSpeed
-    if params.sameSwitch:
-        lan.setNoInterSwitchLinks()
-    pass
-
-# Process nodes, adding to link or lan.
-for i in range(params.nodeCount):
-    # Create a node and add it to the request
-    if params.useVMs:
-        name = "vm" + str(i)
-        node = request.XenVM(name)
-    else:
-        name = "node" + str(i)
-        node = request.RawPC(name)
-        pass
-    if params.osImage and params.osImage != "default":
-        node.disk_image = params.osImage
-        pass
-    # Add to lan
-    if params.nodeCount > 1:
-        iface = node.addInterface("eth1")
-        lan.addInterface(iface)
-        pass
-    # Optional hardware type.
-    if params.phystype != "":
-        node.hardware_type = params.phystype
-        pass
-    # Optional Blockstore
-    if params.tempFileSystemSize > 0 or params.tempFileSystemMax:
-        bs = node.Blockstore(name + "-bs", params.tempFileSystemMount)
-        if params.tempFileSystemMax:
-            bs.size = "0GB"
-        else:
-            bs.size = str(params.tempFileSystemSize) + "GB"
-            pass
-        bs.placement = "any"
-        pass
-    if params.dataset:
-        bs = node.Blockstore(name + "-bs", params.datasetMountPoint)
-        bs.dataset = params.dataset
-        pass
-    pass
-
-    # Run startup script
-    node.addService(pg.Install(
-        url="https://github.com/hvolos/cloudlab/archive/main.tar.gz",
-        path='/local'))
-    node.addService(pg.Execute(
-        shell="sh", command="sudo mv /local/cloudlab-main /local/cloudlab"))
-    node.addService(pg.Execute(
-        shell="sh",
-        command="sudo /local/cloudlab/startup.sh>> /local/logs/startup.log"))
-
-# Print the RSpec to the enclosing page.
-pc.printRequestRSpec(request)
+portal.context.printRequestRSpec()
