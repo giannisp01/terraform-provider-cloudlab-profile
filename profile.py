@@ -43,7 +43,7 @@ pc.defineParameter(
     longDescription="Add a routable IP to the VM.")
 pc.defineStructParameter(
     "sharedVlans", "Add Shared VLAN", [],
-    multiValue=True, itemDefaultValue={}, min=0, max=None,
+    multiValue=True, itemDefaultValue={}, min=1, max=None,
     members=[
         portal.Parameter(
             "createSharedVlan", "Create Shared VLAN",
@@ -69,26 +69,23 @@ pc.defineStructParameter(
 params = pc.bindParameters()
 
 i = 0
+
 for x in params.sharedVlans:
     n = 0
-    if x.createConnectableSharedVlan:
-        n += 1
     if x.createSharedVlan:
         n += 1
     if x.connectSharedVlan:
         n += 1
     if n > 1:
         err = portal.ParameterError(
-            "Must choose only a single shared vlan operation (create, connect, create connectable)",
-            ['sharedVlans[%d].createConnectableSharedVlan' % (i,),
-             'sharedVlans[%d].createSharedVlan' % (i,),
+            "Must choose only a single shared vlan operation (create, connect)",
+            ['sharedVlans[%d].createSharedVlan' % (i,),
              'sharedVlans[%d].connectSharedVlan' % (i,)])
         pc.reportError(err)
     if n == 0:
         err = portal.ParameterError(
-            "Must choose one of the shared vlan operations: create, connect, create connectable",
-            ['sharedVlans[%d].createConnectableSharedVlan' % (i,),
-             'sharedVlans[%d].createSharedVlan' % (i,),
+            "Must choose one of the shared vlan operations: create, connect, create",
+            ['sharedVlans[%d].createSharedVlan' % (i,),
              'sharedVlans[%d].connectSharedVlan' % (i,)])
         pc.reportError(err)
     i += 1
