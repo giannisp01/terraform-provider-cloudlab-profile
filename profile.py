@@ -1,48 +1,122 @@
-"""An example of constructing a profile with node IP addresses specified
-manually.
-
-Instructions:
-Wait for the profile instance to start, and then log in to either VM via the
-ssh ports specified below.  (Note that even though the EXPERIMENTAL
-data plane interfaces will use the addresses given in the profile, you
-will still connect over the control plane interfaces using addresses
-given by the testbed.  The data plane addresses are for intra-experiment
-communication only.)
-"""
-
+# Import the Portal object.
 import geni.portal as portal
-import geni.rspec.pg as rspec
+# Import the ProtoGENI library.
+import geni.rspec.pg as pg
+# Import the InstaGENI library.
+import geni.rspec.igext as ig
+# Import the Emulab specific extensions.
+import geni.rspec.emulab as emulab
 
-# Create a portal context, needed to defined parameters
+# Create a portal object,
 pc = portal.Context()
 
-"""
-Define User Parameters
-"""
-pc.defineParameter("IPv4", "Node IPv4 address", portal.ParameterType.STRING, "")
-pc.defineParameter("SubnetMask", "Node subnet mask", portal.ParameterType.STRING, "")
-pc.defineParameter("VLAN", "Node VLAN", portal.ParameterType.STRING, "")
+agglist = [
+    ("urn:publicid:IDN+emulab.net+authority+cm", "emulab.net"),
+    ("urn:publicid:IDN+utah.cloudlab.us+authority+cm", "utah.cloudlab.us"),
+    ("urn:publicid:IDN+clemson.cloudlab.us+authority+cm", "clemson.cloudlab.us"),
+    ("urn:publicid:IDN+wisc.cloudlab.us+authority+cm", "wisc.cloudlab.us"),
+    ("urn:publicid:IDN+apt.emulab.net+authority+cm", "apt.emulab.net"),
+    ("", "Any")
+]
 
+pc.defineParameter(
+    "aggregate","Specific Aggregate",portal.ParameterType.STRING,
+    "urn:publicid:IDN+emulab.net+authority+cm",agglist)
+pc.defineParameter(
+    "image","Node Image",portal.ParameterType.STRING,
+    'urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU18-64-STD',
+    longDescription="The image your node will run.")
+pc.defineParameter(
+    "routableIP","Routable IP",
+    portal.ParameterType.BOOLEAN,False,
+    longDescription="Add a routable IP to the VM.")
+
+
+pc.defineParameter(
+    "createConnectableSharedVlan", "Create Connectable Shared VLAN",
+    portal.ParameterType.BOOLEAN, False,
+    longDescription="Create a placeholder, connectable shared VLAN stub and 'attach' the first node to it.  You can "
+                    "use this during the experiment to connect this experiment interface to another experiment's "
+                    "shared VLAN."),
+pc.defineParameter(
+    "createSharedVlan", "Create Shared VLAN",
+    portal.ParameterType.BOOLEAN, True,
+    longDescription="Create a new shared VLAN with the name above, and connect the first node to it."),
+pc.defineParameter(
+    "connectSharedVlan", "Connect to Shared VLAN",
+    portal.ParameterType.BOOLEAN, False,
+    longDescription="Connect an existing shared VLAN with the name below to the first node."),
+pc.defineParameter(
+    "sharedVlanName", "Shared VLAN Name",
+    portal.ParameterType.STRING, "",
+    longDescription="A shared VLAN name (functions as a private key allowing other experiments to connect to this "
+                    "node/VLAN), used when the 'Create Shared VLAN' or 'Connect to Shared VLAN' options above are "
+                    "selected.  Must be fewer than 32 alphanumeric characters."),
+pc.defineParameter(
+    "sharedVlanAddress", "Shared VLAN IP Address",
+    portal.ParameterType.STRING, "10.254.254.1",
+    longDescription="Set the IP address for the shared VLAN interface.  Make sure to use an unused address within the "
+                    "subnet of an existing shared vlan!"),
+pc.defineParameter(
+    "sharedVlanNetmask", "Shared VLAN Netmask",
+    portal.ParameterType.STRING, "255.255.255.0",
+    longDescription="Set the subnet mask for the shared VLAN interface, as a dotted quad.")
+
+params = pc.bindParameters()
+
+n = 0
+if params.createConnectableSharedVlan:
+    n += 1
+if params.createSharedVlan:
+    n += 1
+if params.connectSharedVlan:
+    n += 1
+if n > 1:
+    err = portal.ParameterError(
+        "Must choose only a single shared vlan operation (create, connect, create connectable)",
+        ['createConnectableSharedVlan',
+         'createSharedVlan',
+         'connectSharedVlan'])
+    pc.reportError(err)
+if n == 0:
+    err = portal.ParameterError(
+        "Must choose one of the shared vlan operations: create, connect, create connectable",
+        ['createConnectableSharedVlan',
+         'createSharedVlan',
+         'connectSharedVlan'])
+    pc.reportError(err)
 
 pc.verifyParameters()
 
-# Retrieve the values the user specifies during instantiation.
-params = pc.bindParameters()
-
+# Create a Request object to start building the RSpec.
 request = pc.makeRequestRSpec()
 
-node1 = request.XenVM("node1")
-iface1 = node1.addInterface("if1")
+tour = ig.Tour()
+tour.Description(ig.Tour.TEXT, "Create a vlan.")
+request.addTour(tour)
 
-# Specify the component id and the IPv4 address
-iface1.component_id = "eth1"
-iface1.addAddress(rspec.IPv4Address(params.IPv4, params.SubnetMask))
 
-link = request.Link("link")
-link.addInterface(iface1)
+node = ig.XenVM("node-0")
+node.exclusive = False
+if params.routableIP:
+    node.routable_control_ip = True
+if params.aggregate:
+    node.component_manager_id = params.aggregate
+if params.image:
+    node.disk_image = params.image
+iface = node.addInterface("ifSharedVlan")
+if params.sharedVlanAddress:
+    iface.addAddress(
+        pg.IPv4Address(params.sharedVlanAddress, params.sharedVlanNetmask))
+sharedvlan = pg.Link('shared-vlan')
+sharedvlan.addInterface(iface)
+#sharedvlan.enableSharedVlan()
+sharedvlan.createSharedVlan(params.sharedVlanName)
+sharedvlan.connectSharedVlan(params.sharedVlanName)
+sharedvlan.link_multiplexing = True
+sharedvlan.best_effort = True
 
-# Specify the name of the shared vlan. This vlan is special in that it has
-# been setup in advance by system administrators on a specific cluster.
-link.shared_vlan = params.VLAN
+request.addResource(node)
+request.addResource(sharedvlan)
 
 pc.printRequestRSpec(request)
