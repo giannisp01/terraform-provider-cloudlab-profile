@@ -11,49 +11,60 @@ import geni.rspec.emulab as emulab
 pc = portal.Context()
 
 agglist = [
-    ("urn:publicid:IDN+emulab.net+authority+cm","emulab.net"),
-    ("urn:publicid:IDN+utah.cloudlab.us+authority+cm","utah.cloudlab.us"),
-    ("urn:publicid:IDN+clemson.cloudlab.us+authority+cm","clemson.cloudlab.us"),
-    ("urn:publicid:IDN+wisc.cloudlab.us+authority+cm","wisc.cloudlab.us"),
-    ("urn:publicid:IDN+apt.emulab.net+authority+cm","apt.emulab.net"),
-    ("","Any")
+    ("urn:publicid:IDN+emulab.net+authority+cm", "emulab.net"),
+    ("urn:publicid:IDN+utah.cloudlab.us+authority+cm", "utah.cloudlab.us"),
+    ("urn:publicid:IDN+clemson.cloudlab.us+authority+cm", "clemson.cloudlab.us"),
+    ("urn:publicid:IDN+wisc.cloudlab.us+authority+cm", "wisc.cloudlab.us"),
+    ("urn:publicid:IDN+apt.emulab.net+authority+cm", "apt.emulab.net"),
+    ("", "Any")
 ]
+
+imagelist = [
+    ('urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU18-64-STD', 'UBUNTU 18.04'),
+    ('urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU16-64-STD', 'UBUNTU 16.04'),
+    ('urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU20-64-STD', 'UBUNTU 20.04'),
+    ('urn:publicid:IDN+emulab.net+image+emulab-ops//CENTOS7-64-STD', 'CENTOS 7'),
+    ('urn:publicid:IDN+emulab.net+image+emulab-ops//FBSD113-64-STD', 'FreeBSD 11.3')
+]
+
 pc.defineParameter(
-    "aggregate","Specific Aggregate",portal.ParameterType.STRING,
-    "urn:publicid:IDN+emulab.net+authority+cm",agglist)
+    "aggregate", "Specific Aggregate",
+    portal.ParameterType.STRING,
+    agglist[0][0], agglist)
 pc.defineParameter(
-    "image","Node Image",portal.ParameterType.STRING,
-    'urn:publicid:IDN+emulab.net+image+emulab-ops//UBUNTU18-64-STD',
+    "image", "Node Image",
+    portal.ParameterType.IMAGE,
+    imagelist[0][0],
+    imagelist,
     longDescription="The image your node will run.")
 pc.defineParameter(
-    "routableIP","Routable IP",
-    portal.ParameterType.BOOLEAN,False,
+    "routableIP", "Routable IP",
+    portal.ParameterType.BOOLEAN, False,
     longDescription="Add a routable IP to the VM.")
 pc.defineStructParameter(
-    "sharedVlans","Add Shared VLAN",[],
-    multiValue=True,itemDefaultValue={},min=0,max=None,
+    "sharedVlans", "Add Shared VLAN", [],
+    multiValue=True, itemDefaultValue={}, min=0, max=None,
     members=[
         portal.Parameter(
-            "createSharedVlan","Create Shared VLAN",
-            portal.ParameterType.BOOLEAN,False,
+            "createSharedVlan", "Create Shared VLAN",
+            portal.ParameterType.BOOLEAN, False,
             longDescription="Create a new shared VLAN with the name above, and connect the first node to it."),
         portal.Parameter(
-            "connectSharedVlan","Connect to Shared VLAN",
-            portal.ParameterType.BOOLEAN,False,
+            "connectSharedVlan", "Connect to Shared VLAN",
+            portal.ParameterType.BOOLEAN, False,
             longDescription="Connect an existing shared VLAN with the name below to the first node."),
         portal.Parameter(
-            "sharedVlanName","Shared VLAN Name",
-            portal.ParameterType.STRING,"",
+            "sharedVlanName", "Shared VLAN Name",
+            portal.ParameterType.STRING, "",
             longDescription="A shared VLAN name (functions as a private key allowing other experiments to connect to this node/VLAN), used when the 'Create Shared VLAN' or 'Connect to Shared VLAN' options above are selected.  Must be fewer than 32 alphanumeric characters."),
         portal.Parameter(
-            "sharedVlanAddress","Shared VLAN IP Address",
-            portal.ParameterType.STRING,"10.254.254.1",
+            "sharedVlanAddress", "Shared VLAN IP Address",
+            portal.ParameterType.STRING, "10.254.254.1",
             longDescription="Set the IP address for the shared VLAN interface.  Make sure to use an unused address within the subnet of an existing shared vlan!"),
         portal.Parameter(
-            "sharedVlanNetmask","Shared VLAN Netmask",
-            portal.ParameterType.STRING,"255.255.255.0",
+            "sharedVlanNetmask", "Shared VLAN Netmask",
+            portal.ParameterType.STRING, "255.255.255.0",
             longDescription="Set the subnet mask for the shared VLAN interface, as a dotted quad.")])
-
 
 params = pc.bindParameters()
 
@@ -69,16 +80,16 @@ for x in params.sharedVlans:
     if n > 1:
         err = portal.ParameterError(
             "Must choose only a single shared vlan operation (create, connect, create connectable)",
-        [ 'sharedVlans[%d].createConnectableSharedVlan' % (i,),
-          'sharedVlans[%d].createSharedVlan' % (i,),
-          'sharedVlans[%d].connectSharedVlan' % (i,) ])
+            ['sharedVlans[%d].createConnectableSharedVlan' % (i,),
+             'sharedVlans[%d].createSharedVlan' % (i,),
+             'sharedVlans[%d].connectSharedVlan' % (i,)])
         pc.reportError(err)
     if n == 0:
         err = portal.ParameterError(
             "Must choose one of the shared vlan operations: create, connect, create connectable",
-        [ 'sharedVlans[%d].createConnectableSharedVlan' % (i,),
-          'sharedVlans[%d].createSharedVlan' % (i,),
-          'sharedVlans[%d].connectSharedVlan' % (i,) ])
+            ['sharedVlans[%d].createConnectableSharedVlan' % (i,),
+             'sharedVlans[%d].createSharedVlan' % (i,),
+             'sharedVlans[%d].connectSharedVlan' % (i,)])
         pc.reportError(err)
     i += 1
 
@@ -88,12 +99,13 @@ pc.verifyParameters()
 request = pc.makeRequestRSpec()
 
 tour = ig.Tour()
-tour.Description(ig.Tour.TEXT,"Create a single shared-mode VM and host or connect to shared vlan(s).")
+tour.Description(ig.Tour.TEXT, "Create a single shared-mode VM and host or connect to shared vlan(s).")
 request.addTour(tour)
 
 sharedvlans = []
 
 node = ig.XenVM("node-0")
+node.disk_image = params.image
 node.exclusive = False
 if params.routableIP:
     node.routable_control_ip = True
@@ -106,7 +118,7 @@ for x in params.sharedVlans:
     iface = node.addInterface("ifSharedVlan%d" % (k,))
     if x.sharedVlanAddress:
         iface.addAddress(
-            pg.IPv4Address(x.sharedVlanAddress,x.sharedVlanNetmask))
+            pg.IPv4Address(x.sharedVlanAddress, x.sharedVlanNetmask))
     sharedvlan = pg.Link('shared-vlan-%d' % (k,))
     sharedvlan.addInterface(iface)
     if x.createSharedVlan:
