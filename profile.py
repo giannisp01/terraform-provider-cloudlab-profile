@@ -110,7 +110,7 @@ if params.sharedVlanAddress:
         pg.IPv4Address(params.sharedVlanAddress, params.sharedVlanNetmask))
 sharedvlan = pg.Link('shared-vlan')
 sharedvlan.addInterface(iface)
-#sharedvlan.enableSharedVlan()
+sharedvlan.enableSharedVlan()
 sharedvlan.createSharedVlan(params.sharedVlanName)
 sharedvlan.connectSharedVlan(params.sharedVlanName)
 sharedvlan.link_multiplexing = True
