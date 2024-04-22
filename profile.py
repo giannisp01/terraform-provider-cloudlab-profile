@@ -43,7 +43,7 @@ pc.defineParameter(
     longDescription="Add a routable IP to the VM.")
 pc.defineStructParameter(
     "sharedVlans", "Add Shared VLAN", [],
-    multiValue=True, itemDefaultValue={}, min=1, max=None,
+    multiValue=True, itemDefaultValue={}, min=0, max=None,
     members=[
         portal.Parameter(
             "createSharedVlan", "Create Shared VLAN",
@@ -54,22 +54,21 @@ pc.defineStructParameter(
             portal.ParameterType.BOOLEAN, False,
             longDescription="Connect an existing shared VLAN with the name below to the first node."),
         portal.Parameter(
-            "sharedVlanName", "Shared VLAN Name",
+            "name", "Shared VLAN Name",
             portal.ParameterType.STRING, "",
             longDescription="A shared VLAN name (functions as a private key allowing other experiments to connect to this node/VLAN), used when the 'Create Shared VLAN' or 'Connect to Shared VLAN' options above are selected.  Must be fewer than 32 alphanumeric characters."),
         portal.Parameter(
-            "sharedVlanAddress", "Shared VLAN IP Address",
+            "ip_address", "Shared VLAN IP Address",
             portal.ParameterType.STRING, "10.254.254.1",
             longDescription="Set the IP address for the shared VLAN interface.  Make sure to use an unused address within the subnet of an existing shared vlan!"),
         portal.Parameter(
-            "sharedVlanNetmask", "Shared VLAN Netmask",
+            "subnet_mask", "Shared VLAN Netmask",
             portal.ParameterType.STRING, "255.255.255.0",
             longDescription="Set the subnet mask for the shared VLAN interface, as a dotted quad.")])
 
 params = pc.bindParameters()
 
 i = 0
-
 for x in params.sharedVlans:
     n = 0
     if x.createSharedVlan:
@@ -84,7 +83,7 @@ for x in params.sharedVlans:
         pc.reportError(err)
     if n == 0:
         err = portal.ParameterError(
-            "Must choose one of the shared vlan operations: create, connect, create",
+            "Must choose one of the shared vlan operations: create, connect",
             ['sharedVlans[%d].createSharedVlan' % (i,),
              'sharedVlans[%d].connectSharedVlan' % (i,)])
         pc.reportError(err)
@@ -113,15 +112,15 @@ if params.image:
 k = 0
 for x in params.sharedVlans:
     iface = node.addInterface("ifSharedVlan%d" % (k,))
-    if x.sharedVlanAddress:
+    if x.ip_address:
         iface.addAddress(
-            pg.IPv4Address(x.sharedVlanAddress, x.sharedVlanNetmask))
+            pg.IPv4Address(x.ip_address, x.subnet_mask))
     sharedvlan = pg.Link('shared-vlan-%d' % (k,))
     sharedvlan.addInterface(iface)
     if x.createSharedVlan:
-        sharedvlan.createSharedVlan(x.sharedVlanName)
+        sharedvlan.createSharedVlan(x.name)
     else:
-        sharedvlan.connectSharedVlan(x.sharedVlanName)
+        sharedvlan.connectSharedVlan(x.name)
     sharedvlan.link_multiplexing = True
     sharedvlan.best_effort = True
     sharedvlans.append(sharedvlan)
